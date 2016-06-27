@@ -1,0 +1,222 @@
+//表单html
+<form action="js/form.php" method="post" id="changeForm"  name="change">
+<div class="change-password">
+  <div class="con">
+    <h3>密码修改</h3>
+     <div class="user-name  clearfix">
+     <label>用户名</label>
+     <div class="user-name-inp    inp">
+    <input type="text"   value="用户名" name="username"></div>
+    <div class="tips"></div>
+    </div>
+     <div class="password-old   clearfix"  >
+    <label>原密码</label>
+    <div class="password-old-inp   inp">
+    <input type="password"  data-warn="请输入您的原密码"   id="old"  name="old">
+    </div>
+    <div class="tips   old-tips"  ></div>
+    </div>    
+     <div class="password-new   clearfix">
+     <label>新密码</label>
+     <div class="password-new-inp  inp">
+     <input type="password" name="new" data-verify="密码应该为6位-24位的数字、字母或者数字和字母的组合" data-repeat="两次输入密码的值不相同" id="new">
+     </div>
+     <div class="tips  new-tips">密码应该为6位-24位的数字、字母或者数字和字母的组合</div>
+     </div>    
+     <div class="password-confirm   clearfix">
+     <label>确认密码</label>
+     <div class="password-confirm-inp   inp">
+     <input type="password" name="confirm" data-verify="两次输入密码的值不相同" id="confirm">
+     </div> 
+     <div class="tips  confirm-tips"></div>
+     </div>   
+    <a href="javascript:" class="submit   clearfix"  id="submit">确定</a>
+  </div>
+</div>
+</form>
+<script>
+    // 策略对象  begin
+    var  strategies={
+        isNonEmpty:function(value,errorMsg){
+            if(value===''){
+                return errorMsg;
+            }
+        },
+        minLength:function(value,length,errorMsg){
+            if(value.length<length){
+                return errorMsg;
+            }
+        },
+        maxLength:function(value,length,errorMsg){
+            if(value.length>length){
+                return errorMsg;
+            }
+        },
+        isPwd:function(value,errorMsg){
+            if(!/^[A-Za-z0-9]{6,24}$/.test(value)){
+                return errorMsg;
+            }
+        },
+        equalPwd:function(value,value1,errorMsg){
+            if(value!=value1&&value&&value1){
+                return errorMsg;
+            }
+        }
+    };
+    // 策略对象  end
+
+    //validator类  begin
+    var Validator=function(){
+        this.cache=[];//保存校验规则
+    }
+    Validator.prototype.add=function(dom,rules){
+        var self=this;
+        for(var i=0,rule;rule=rules[i++];){
+            (function(rule){
+                var strategyAry=rule.strategy.split(':');
+                var errorMsg=rule.errorMsg;
+                self.cache.push(function(){
+                    var strategy=strategyAry.shift();
+                    strategyAry.unshift(dom.value);
+                    strategyAry.push(errorMsg);
+                    return strategies[strategy].apply(dom,strategyAry);
+                });
+            })(rule)
+        }
+    };
+    Validator.prototype.start=function(){
+        for(var i=0,validatorFunc;validatorFunc=this.cache[i++];){
+            var errorMsg=validatorFunc();
+            if(errorMsg){
+                return errorMsg;
+            }
+        }
+    };
+    //validator类  end
+    function doAjax(obj){
+       if(Object.prototype.toString.call(obj) == '[object Object]'){
+           $.ajax(obj)
+       }
+    }
+    // 客户调用代码  begin
+    var msg=true;
+    var changeForm=document.getElementById("changeForm");
+    $("#old").blur(function(){
+        $("."+$(this).attr("id")+"-tips").html("");
+        var tipDom=$("."+$(this).attr("id")+"-tips");
+            var validatorOld=new Validator();
+            validatorOld.add(changeForm.old,[{
+                strategy:'isNonEmpty',
+                errorMsg:'原密码不能为空'
+            }]);
+            var errorMsg=validatorOld.start();
+            if(errorMsg){
+             tipDom.html(errorMsg);
+            return false;
+         }
+        doAjax({
+            url:'js/data.php',
+            type:'post',
+            data:{oldpwd:$('#old').val()},
+            datatype:"json",
+            success: function(data){
+                var data = eval('('+data+')');
+                if(data.status == 1){
+                    tipDom.html(data.msg).removeClass("color");
+                    msg=true;
+                }
+                else if(data.status == 0){
+                    tipDom.html(data.msg).addClass("color");
+                     msg=false;
+                }
+            },
+            error: function(data){
+                alert('网络错误！稍后重试');
+            }
+        });
+    });
+    $("#new").blur(function(){
+        $("."+$(this).attr("id")+"-tips").html("");
+        $(".confirm-tips").html("");
+            var tipDom=$("."+$(this).attr("id")+"-tips");
+            var validatorNew=new Validator();
+            validatorNew.add(changeForm.new,[{
+                strategy:'minLength:6',
+                errorMsg:'密码应该为6位-24位的数字、字母或者数字和字母的组合'
+            },{
+                strategy:'maxLength:24',
+                errorMsg:'密码应该为6位-24位的数字、字母或者数字和字母的组合'
+            },{
+                strategy:'isPwd',
+                errorMsg:'密码应该为6位-24位的数字、字母或者数字和字母的组合'
+            },{
+                strategy:'equalPwd:'+$('#confirm').val(),
+                errorMsg:'两次输入密码的值不相同'
+            }]);
+            var errorMsg=validatorNew.start();
+              if(errorMsg){
+            tipDom.html(errorMsg).addClass("color");
+            return false;
+        }
+    });
+    $("#confirm").blur(function(){
+        $("."+$(this).attr("id")+"-tips").html("");
+        $(".new-tips").html("");
+        var tipDom=$("."+$(this).attr("id")+"-tips");
+            var validatorConfirm=new Validator();
+            validatorConfirm.add(changeForm.confirm,[{
+                strategy:'equalPwd:'+$('#new').val(),
+                errorMsg:'两次输入密码的值不相同'
+            }]);
+            var errorMsg=validatorConfirm.start();
+        if(errorMsg){
+            tipDom.html(errorMsg).addClass("color");
+            return false;
+        }
+    });
+    $(".submit").click(function(){
+            var validator=new Validator();
+            validator.add(changeForm.old,[{
+            strategy:'isNonEmpty',
+            errorMsg:'原密码不能为空'
+        }]);
+            validator.add(changeForm.new,[{
+                strategy:'minLength:6',
+                errorMsg:'密码应该为6位-24位的数字、字母或者数字和字母的组合'
+            },{
+                strategy:'maxLength:24',
+                errorMsg:'密码应该为6位-24位的数字、字母或者数字和字母的组合'
+            },{
+                strategy:'isPwd',
+                errorMsg:'密码应该为6位-24位的数字、字母或者数字和字母的组合'
+            },{
+                strategy:'equalPwd:'+$('#confirm').val(),
+                errorMsg:'两次输入密码的值不相同'
+            }]);
+            validator.add(changeForm.confirm,[{
+                strategy:'equalPwd:'+$('#new').val(),
+                errorMsg:'两次输入密码的值不相同'
+            }]);
+            var errorMsg=validator.start();
+        if(errorMsg||!msg){
+            return false;
+        }
+        doAjax({
+            url:$("#changeForm").attr("action"),
+            type:$("#changeForm").attr("method"),
+            data:$("#changeForm").serialize(),
+            dataType:"json",
+            success: function(data){
+                if(data.status == 1){
+                    if(data.url){
+                        alert(data.msg);
+                        location.href= data.url;
+                    }
+                }
+            },
+            error: function(data){
+                alert('网络错误！稍后重试');
+            }
+        });
+    });
+</script>
